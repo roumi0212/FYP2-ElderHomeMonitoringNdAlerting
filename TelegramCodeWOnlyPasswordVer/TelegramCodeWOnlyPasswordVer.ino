@@ -145,12 +145,10 @@ void handleNewMessages(int numNewMessages) {
                 bot.sendMessage(chat_id, "Incorrect password. Please try again:", "");
             }
         } else if (botState == MAIN_MENU) {
-            if (bot.messages[i].type == "callback_query") {
-                String callbackData = bot.messages[i].callback_query.data;
-                handleCallbackQuery(callbackData, chat_id);
-                bot.answerCallbackQuery(bot.messages[i].callback_query.id);
-            } else {
+            if (bot.messages[i].text == "/start") {
                 displayMainMenu(chat_id);
+            } else {
+                handleCallbackQuery(bot.messages[i].text, chat_id);
             }
         }
     }
