@@ -17,9 +17,13 @@ UniversalTelegramBot bot(BOT_TOKEN, secured_client);
 const unsigned long BOT_MTBS = 1000; // mean time between scan messages
 unsigned long bot_lasttime = 0; // last time messages' scan has been done
 
-enum State {INITIAL, AWAITING_GUEST_NAME, MAIN_MENU};
+enum State {INITIAL, AWAITING_GUEST_NAME, AWAITING_MEMBER_NAME, AWAITING_PASSWORD, MAIN_MENU};
 State botState = INITIAL;
 String guestName = "";
+String selectedMember = "";
+
+// List of verified users
+std::vector<String> verifiedUsers;
 
 void setup() {
   Serial.begin(115200);
@@ -62,18 +66,44 @@ void handleNewMessages(int numNewMessages) {
     String chat_id = String(bot.messages[i].chat_id);
     String text = bot.messages[i].text;
 
-    if (botState == INITIAL) {
-      displayMemberMenu(chat_id);
-      botState = MAIN_MENU;
-    } else if (botState == AWAITING_GUEST_NAME) {
-      guestName = text;
-      bot.sendMessage(chat_id, "Hello " + guestName + ", please choose an action from the menu:", "");
-      displayMainMenu(chat_id);
-      botState = MAIN_MENU;
-    } else if (botState == MAIN_MENU) {
-      if (bot.messages[i].type == "callback_query") {
-        String callbackData = bot.messages[i].text;
-        handleCallbackQuery(callbackData);
+    // Check if the user is already verified
+    if (std::find(verifiedUsers.begin(), verifiedUsers.end(), chat_id) == verifiedUsers.end()) {
+      // User is not verified, prompt for verification
+      if (bot.messages[i].type == F("callback_query")) {
+        handleCallbackQuery(bot.messages[i].text, chat_id);
+      } else {
+        if (botState == INITIAL) {
+          displayMemberMenu(chat_id);
+          botState = INITIAL;
+        } else if (botState == AWAITING_GUEST_NAME) {
+          guestName = text;
+          bot.sendMessage(chat_id, "Hello " + guestName + ", please choose an action from the menu:", "");
+          displayMainMenu(chat_id);
+          verifiedUsers.push_back(chat_id);
+          botState = MAIN_MENU;
+        } else if (botState == AWAITING_MEMBER_NAME) {
+          selectedMember = text;
+          if (selectedMember == "Mariam" || selectedMember == "Yasser") {
+            bot.sendMessage(chat_id, "Please enter your password:", "");
+            botState = AWAITING_PASSWORD;
+          } else {
+            bot.sendMessage(chat_id, "Invalid member name. Please choose Mariam or Yasser:", "");
+          }
+        } else if (botState == AWAITING_PASSWORD) {
+          if ((selectedMember == "Mariam" && text == "mariam123") || (selectedMember == "Yasser" && text == "yasser123")) {
+            bot.sendMessage(chat_id, "Welcome " + selectedMember + "! You are now authorized.", "");
+            displayMainMenu(chat_id);
+            verifiedUsers.push_back(chat_id);
+            botState = MAIN_MENU;
+          } else {
+            bot.sendMessage(chat_id, "Incorrect password. Please try again:", "");
+          }
+        }
+      }
+    } else {
+      // User is verified, handle their messages
+      if (bot.messages[i].type == F("callback_query")) {
+        handleCallbackQuery(bot.messages[i].text, chat_id);
       } else {
         displayMainMenu(chat_id);
       }
@@ -88,6 +118,13 @@ void displayMemberMenu(const String &chat_id) {
   bot.sendMessageWithInlineKeyboard(chat_id, menu, "", keyboardJson);
 }
 
+void displayFamilyMemberMenu(const String &chat_id) {
+  String menu = "Please choose your name:";
+  String keyboardJson = "[[{\"text\":\"Mariam\",\"callback_data\":\"Mariam\"}],"
+                         "[{\"text\":\"Yasser\",\"callback_data\":\"Yasser\"}]]";
+  bot.sendMessageWithInlineKeyboard(chat_id, menu, "", keyboardJson);
+}
+
 void displayMainMenu(const String &chat_id) {
   String menu = "Please choose an action:";
   String keyboardJson = "[[{\"text\":\"Alert the House\",\"callback_data\":\"alert_house\"}],"
@@ -97,21 +134,29 @@ void displayMainMenu(const String &chat_id) {
   bot.sendMessageWithInlineKeyboard(chat_id, menu, "", keyboardJson);
 }
 
-void handleCallbackQuery(String callbackData) {
+void handleCallbackQuery(String callbackData, const String &chat_id) {
   if (callbackData == "family_member") {
-    bot.sendMessage(CHAT_ID, "Welcome family member! Please choose an action from the menu:", "");
-    displayMainMenu(CHAT_ID);
+    displayFamilyMemberMenu(chat_id);
+    botState = AWAITING_MEMBER_NAME;
   } else if (callbackData == "guest") {
-    bot.sendMessage(CHAT_ID, "Please enter your name:", "");
+    bot.sendMessage(chat_id, "Please enter your name:", "");
     botState = AWAITING_GUEST_NAME;
+  } else if (callbackData == "Mariam") {
+    selectedMember = "Mariam";
+    bot.sendMessage(chat_id, "Please enter your password:", "");
+    botState = AWAITING_PASSWORD;
+  } else if (callbackData == "Yasser") {
+    selectedMember = "Yasser";
+    bot.sendMessage(chat_id, "Please enter your password:", "");
+    botState = AWAITING_PASSWORD;
   } else if (callbackData == "alert_house") {
-    alertHouse(bot, CHAT_ID);
+    alertHouse(bot, chat_id);
   } else if (callbackData == "call_care") {
-    callEmergencyCareProvider(bot, CHAT_ID);
+    callEmergencyCareProvider(bot, chat_id);
   } else if (callbackData == "call_resident") {
-    callResident(bot, CHAT_ID);
+    callResident(bot, chat_id);
   } else if (callbackData == "live_update") {
-    sendLiveUpdate(bot, CHAT_ID);
+    sendLiveUpdate(bot, chat_id);
   }
 }
 
