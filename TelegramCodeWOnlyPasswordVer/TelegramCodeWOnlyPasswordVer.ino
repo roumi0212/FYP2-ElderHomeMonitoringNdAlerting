@@ -2,12 +2,13 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
+#include <map>
 
 // WiFi network credentials
 #define WIFI_SSID "Mariam's"
 #define WIFI_PASSWORD "mariamshotspotyall"
 
-// Telegram BOT Token and Chat ID
+// Telegram BOT Token
 #define BOT_TOKEN "6704040514:AAEqdRFRhIXZtbBqArfKGl3xQ8WFq1K4Q0c"
 
 WiFiClientSecure secured_client;
@@ -17,11 +18,10 @@ const unsigned long BOT_MTBS = 1000; // mean time between scan messages
 unsigned long bot_lasttime = 0; // last time messages' scan has been done
 
 enum State {INITIAL, AWAITING_NAME, AWAITING_PASSWORD, MAIN_MENU};
-State botState = INITIAL;
-String userName = "";
 
-// List of active chat IDs
-std::vector<String> activeChatIDs;
+// Map to store the state of each user
+std::map<String, State> userStates;
+std::map<String, String> userNames;
 
 // Predefined password
 String predefinedPassword = "password123";
@@ -108,98 +108,102 @@ void sendAlertMessages() {
   }
 
   if (alertMessage != "") {
-    for (const String &chat_id : activeChatIDs) {
-      bot.sendMessage(chat_id, alertMessage, "");
+    for (const auto& user : userStates) {
+      bot.sendMessage(user.first, alertMessage, "");
     }
   }
 
   // Display the menu after sending the alert
-  for (const String &chat_id : activeChatIDs) {
-    displayMainMenu(chat_id);
+  for (const auto& user : userStates) {
+    displayMainMenu(user.first);
   }
 }
 
 void handleNewMessages(int numNewMessages) {
-    for (int i = 0; i < numNewMessages; i++) {
-        String chat_id = String(bot.messages[i].chat_id);
-        String text = bot.messages[i].text;
+  for (int i = 0; i < numNewMessages; i++) {
+    String chat_id = String(bot.messages[i].chat_id);
+    String text = bot.messages[i].text;
 
-        // Add chat ID to active list if not already present
-        if (std::find(activeChatIDs.begin(), activeChatIDs.end(), chat_id) == activeChatIDs.end()) {
-            activeChatIDs.push_back(chat_id);
-        }
-
-        if (botState == INITIAL) {
-            bot.sendMessage(chat_id, "Please enter your name:", "");
-            botState = AWAITING_NAME;
-        } else if (botState == AWAITING_NAME) {
-            userName = text;
-            bot.sendMessage(chat_id, "Hello " + userName + ", please enter your password:", "");
-            botState = AWAITING_PASSWORD;
-        } else if (botState == AWAITING_PASSWORD) {
-            if (text == predefinedPassword) {
-                bot.sendMessage(chat_id, "Welcome " + userName + "! You are now authorized.", "");
-                displayMainMenu(chat_id);
-                botState = MAIN_MENU;
-            } else {
-                bot.sendMessage(chat_id, "Incorrect password. Please try again:", "");
-            }
-        } else if (botState == MAIN_MENU) {
-            if (bot.messages[i].text == "/start") {
-                displayMainMenu(chat_id);
-            } else {
-                handleCallbackQuery(bot.messages[i].text, chat_id);
-            }
-        }
+    // Initialize user state if not already present
+    if (userStates.find(chat_id) == userStates.end()) {
+      userStates[chat_id] = INITIAL;
     }
+
+    State& state = userStates[chat_id];
+
+    if (state == INITIAL) {
+      bot.sendMessage(chat_id, "Please enter your name:", "");
+      state = AWAITING_NAME;
+    } else if (state == AWAITING_NAME) {
+      userNames[chat_id] = text;
+      bot.sendMessage(chat_id, "Hello " + text + ", please enter your password:", "");
+      state = AWAITING_PASSWORD;
+    } else if (state == AWAITING_PASSWORD) {
+      if (text == predefinedPassword) {
+        bot.sendMessage(chat_id, "Welcome " + userNames[chat_id] + "! You are now authorized.", "");
+        displayMainMenu(chat_id);
+        state = MAIN_MENU;
+      } else {
+        bot.sendMessage(chat_id, "Incorrect password. Please try again:", "");
+      }
+    } else if (state == MAIN_MENU) {
+      if (bot.messages[i].type == "callback_query") {
+        String callbackData = bot.messages[i].text;
+        handleCallbackQuery(callbackData, chat_id);
+        bot.answerCallbackQuery(bot.messages[i].query_id);
+      } else {
+        displayMainMenu(chat_id);
+      }
+    }
+  }
 }
 
 void displayMainMenu(const String &chat_id) {
-    String menu = "Please choose an action:";
-    String keyboardJson = "[[{\"text\":\"Alert the House\",\"callback_data\":\"alert_house\"}],"
-                           "[{\"text\":\"Call Emergency Care Provider\",\"callback_data\":\"call_care\"}],"
-                           "[{\"text\":\"Call Resident of House\",\"callback_data\":\"call_resident\"}],"
-                           "[{\"text\":\"Request Live Update\",\"callback_data\":\"live_update\"}]]";
-    bot.sendMessageWithInlineKeyboard(chat_id, menu, "", keyboardJson);
+  String menu = "Please choose an action:";
+  String keyboardJson = "[[{\"text\":\"Alert the House\",\"callback_data\":\"alert_house\"}],"
+                         "[{\"text\":\"Call Emergency Care Provider\",\"callback_data\":\"call_care\"}],"
+                         "[{\"text\":\"Call Resident of House\",\"callback_data\":\"call_resident\"}],"
+                         "[{\"text\":\"Request Live Update\",\"callback_data\":\"live_update\"}]]";
+  bot.sendMessageWithInlineKeyboard(chat_id, menu, "", keyboardJson);
 }
 
 void handleCallbackQuery(String callbackData, const String &chat_id) {
-    if (callbackData == "alert_house") {
-        alertHouse(bot, chat_id);
-    } else if (callbackData == "call_care") {
-        callEmergencyCareProvider(bot, chat_id);
-    } else if (callbackData == "call_resident") {
-        callResident(bot, chat_id);
-    } else if (callbackData == "live_update") {
-        sendLiveUpdate(bot, chat_id);
-    }
+  if (callbackData == "alert_house") {
+    alertHouse(bot, chat_id);
+  } else if (callbackData == "call_care") {
+    callEmergencyCareProvider(bot, chat_id);
+  } else if (callbackData == "call_resident") {
+    callResident(bot, chat_id);
+  } else if (callbackData == "live_update") {
+    sendLiveUpdate(bot, chat_id);
+  }
 }
 
 void alertHouse(UniversalTelegramBot &bot, const String &chat_id) {
-    bot.sendMessage(chat_id, "Alerting the house...", "");
-    Serial.println("Alerting the house...");
+  bot.sendMessage(chat_id, "Alerting the house...", "");
+  Serial.println("Alerting the house...");
 }
 
 void callEmergencyCareProvider(UniversalTelegramBot &bot, const String &chat_id) {
-    String phoneNumber = "+1234567890"; // Replace with the actual phone number
-    String message = "Calling Emergency Care Provider...\n";
-    message += "Phone number: " + phoneNumber + "\n";
-    message += "[Click here to call](tel:" + phoneNumber + ")";
-    bot.sendMessage(chat_id, message, "Markdown");
-    Serial.println("Calling Emergency Care Provider...");
+  String phoneNumber = "+1234567890"; // Replace with the actual phone number
+  String message = "Calling Emergency Care Provider...\n";
+  message += "Phone number: " + phoneNumber + "\n";
+  message += "[Click here to call](tel:" + phoneNumber + ")";
+  bot.sendMessage(chat_id, message, "Markdown");
+  Serial.println("Calling Emergency Care Provider...");
 }
 
 void callResident(UniversalTelegramBot &bot, const String &chat_id) {
-    String phoneNumber = "+0987654321"; // Replace with the actual phone number
-    String message = "Calling Resident of House...\n";
-    message += "Phone number: " + phoneNumber + "\n";
-    message += "[Click here to call](tel:" + phoneNumber + ")";
-    bot.sendMessage(chat_id, message, "Markdown");
-    Serial.println("Calling Resident of House...");
+  String phoneNumber = "+0987654321"; // Replace with the actual phone number
+  String message = "Calling Resident of House...\n";
+  message += "Phone number: " + phoneNumber + "\n";
+  message += "[Click here to call](tel:" + phoneNumber + ")";
+  bot.sendMessage(chat_id, message, "Markdown");
+  Serial.println("Calling Resident of House...");
 }
 
 void sendLiveUpdate(UniversalTelegramBot &bot, const String &chat_id) {
-    bot.sendMessage(chat_id, "Providing live update...", "");
-    Serial.println("Providing live update...");
-    // Add your live update functionality here
+  bot.sendMessage(chat_id, "Providing live update...", "");
+  Serial.println("Providing live update...");
+  // Add your live update functionality here
 }
