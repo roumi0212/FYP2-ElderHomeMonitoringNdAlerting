@@ -119,9 +119,9 @@ void handleNewMessages(int numNewMessages) {
       bot.sendMessage(chat_id, "Unauthorized user", "");
     } else {
       if (bot.messages[i].type == "callback_query") {
-        String callbackData = bot.messages[i].callback_query.data;
+        String callbackData = bot.messages[i].text;
         handleCallbackQuery(callbackData);
-        bot.answerCallbackQuery(bot.messages[i].callback_query.id); // This line is important to send a response to the callback
+        bot.answerCallbackQuery(bot.messages[i].query_id); // Respond to the callback query
       } else if (bot.messages[i].text == "/start") {
         // Display the menu when the /start command is received
         displayMenu();
