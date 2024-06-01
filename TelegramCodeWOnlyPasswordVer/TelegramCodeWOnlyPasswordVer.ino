@@ -134,4 +134,74 @@ void handleNewMessages(int numNewMessages) {
             botState = AWAITING_NAME;
         } else if (botState == AWAITING_NAME) {
             userName = text;
-            bot.sendMessage(chat_id, "Hello " + userName + ", pleas
+            bot.sendMessage(chat_id, "Hello " + userName + ", please enter your password:", "");
+            botState = AWAITING_PASSWORD;
+        } else if (botState == AWAITING_PASSWORD) {
+            if (text == predefinedPassword) {
+                bot.sendMessage(chat_id, "Welcome " + userName + "! You are now authorized.", "");
+                displayMainMenu(chat_id);
+                botState = MAIN_MENU;
+            } else {
+                bot.sendMessage(chat_id, "Incorrect password. Please try again:", "");
+            }
+        } else if (botState == MAIN_MENU) {
+            if (bot.messages[i].type == "callback_query") {
+                String callbackData = bot.messages[i].callback_query.data;
+                handleCallbackQuery(callbackData, chat_id);
+                bot.answerCallbackQuery(bot.messages[i].callback_query.id);
+            } else {
+                displayMainMenu(chat_id);
+            }
+        }
+    }
+}
+
+void displayMainMenu(const String &chat_id) {
+    String menu = "Please choose an action:";
+    String keyboardJson = "[[{\"text\":\"Alert the House\",\"callback_data\":\"alert_house\"}],"
+                           "[{\"text\":\"Call Emergency Care Provider\",\"callback_data\":\"call_care\"}],"
+                           "[{\"text\":\"Call Resident of House\",\"callback_data\":\"call_resident\"}],"
+                           "[{\"text\":\"Request Live Update\",\"callback_data\":\"live_update\"}]]";
+    bot.sendMessageWithInlineKeyboard(chat_id, menu, "", keyboardJson);
+}
+
+void handleCallbackQuery(String callbackData, const String &chat_id) {
+    if (callbackData == "alert_house") {
+        alertHouse(bot, chat_id);
+    } else if (callbackData == "call_care") {
+        callEmergencyCareProvider(bot, chat_id);
+    } else if (callbackData == "call_resident") {
+        callResident(bot, chat_id);
+    } else if (callbackData == "live_update") {
+        sendLiveUpdate(bot, chat_id);
+    }
+}
+
+void alertHouse(UniversalTelegramBot &bot, const String &chat_id) {
+    bot.sendMessage(chat_id, "Alerting the house...", "");
+    Serial.println("Alerting the house...");
+}
+
+void callEmergencyCareProvider(UniversalTelegramBot &bot, const String &chat_id) {
+    String phoneNumber = "+1234567890"; // Replace with the actual phone number
+    String message = "Calling Emergency Care Provider...\n";
+    message += "Phone number: " + phoneNumber + "\n";
+    message += "[Click here to call](tel:" + phoneNumber + ")";
+    bot.sendMessage(chat_id, message, "Markdown");
+    Serial.println("Calling Emergency Care Provider...");
+}
+
+void callResident(UniversalTelegramBot &bot, const String &chat_id) {
+    String phoneNumber = "+0987654321"; // Replace with the actual phone number
+    String message = "Calling Resident of House...\n";
+    message += "Phone number: " + phoneNumber + "\n";
+    message += "[Click here to call](tel:" + phoneNumber + ")";
+    bot.sendMessage(chat_id, message, "Markdown");
+    Serial.println("Calling Resident of House...");
+}
+
+void sendLiveUpdate(UniversalTelegramBot &bot, const String &chat_id) {
+    bot.sendMessage(chat_id, "Providing live update...", "");
+    Serial.println("Providing live update...");
+    // Add your live update functionality here
+}
