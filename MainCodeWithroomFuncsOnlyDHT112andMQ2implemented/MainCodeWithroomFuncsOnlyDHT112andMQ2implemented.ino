@@ -11,13 +11,8 @@ DHT dhtBathroom(DHTPIN_BATHROOM, DHTTYPE);
 // MQ2 sensor pin
 const int gasSensorPin = 34; // GPIO pin connected to MQ2 sensor
 int gasValue = 0;
-
-// Flame sensor pin
-const int flameSensorPinD = 25; // GPIO pin connected to flame sensor
-const float flameSensorPinA = 35; // GPIO pin connected to flame sensor
-
-float flameValueA = 0;
-int flameValueD = 0;
+const int FlameanalogInPin = 35;  // A0 attach to pin 35
+const int FlamedigitalInPin = 25; // D0 attach to pin 32
 
 
 // Status flags
@@ -34,8 +29,7 @@ void setup() {
   Serial.begin(115200); // Start the serial communication at a baud rate of 115200
   dhtKitchen.begin();   // Initialize the DHT11 sensor in the kitchen
   dhtBathroom.begin();  // Initialize the DHT11 sensor in the bathroom
-  pinMode(flameSensorPinD, INPUT); // Initialize the flame sensor pin as input
-  pinMode(flameSensorPinA, INPUT); // Initialize the flame sensor pin as input
+  pinMode(FlamedigitalInPin, INPUT);
 
 }
 
@@ -106,20 +100,40 @@ void monitorKitchen() {
     gasAlert = 0;
   }
 
-  // Monitor flame sensor
-  flameValueD = digitalRead(flameSensorPinD); // Read digital value from sensor
-  flameValueA = analogRead(flameSensorPinA); // Read digital value from sensor
+  // // Monitor flame sensor
+  // flameValueD = digitalRead(flameSensorPinD); // Read digital value from sensor
+  // flameValueA = analogRead(flameSensorPinA); // Read digital value from sensor
 
-  if (flameValueD == LOW) { // Assuming LOW means flame detected
-    flameAlert = 1;
-    Serial.println("Alert: Flame detected in the kitchen! Please check the area.");
-        Serial.println("Alert: Flame Value is:");
-                Serial.println(flameValueA);
+  // if (flameValueD == LOW) { // Assuming LOW means flame detected
+  //   flameAlert = 1;
+  //   Serial.println("Alert: Flame detected in the kitchen! Please check the area.");
+  //       Serial.println("Alert: Flame Value is:");
+  //               Serial.println(flameValueA);
+
+  // } else {
+  //   flameAlert = 0;
+  //       Serial.println("Flame Value is:");
+  //               Serial.println(flameValueA);
+  // }
+
+    int FlameanalogVal = analogRead(FlameanalogInPin);  // read the value of analog pin 35
+  Serial.print("Analog Value: ");
+  Serial.println(FlameanalogVal);  // print to serial monitor
+
+  int FlamedigitalVal = digitalRead(FlamedigitalInPin);  // read the value of digital pin 32
+  Serial.print("Digital Value: ");
+  Serial.println(FlamedigitalVal);  // print to serial monitor
+
+  if (FlamedigitalVal == LOW || FlameanalogVal<4000) {  // assuming LOW means flame detected
+    Serial.println("Alert: Flame detected! Please check the area.");
+    Serial.print("Analog Flame Sensor Value: ");
+    Serial.println(FlameanalogVal);
+            flameAlert = 1;
 
   } else {
-    flameAlert = 0;
-        Serial.println("Flame Value is:");
-                Serial.println(flameValueA);
+    Serial.println("No flame detected.");
+        flameAlert = 0;
+
   }
 }
 
