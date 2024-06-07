@@ -1,7 +1,7 @@
 #include <DHT.h>
 
 
-const int reedSwitchPin = 33; // GPIO pin connected to the magnetic switch
+const int reedSwitchPin = 27; // GPIO pin connected to the magnetic switch
 
 // DHT11 sensor configuration
 #define DHTPIN_KITCHEN 32  // GPIO pin connected to the DHT11 sensor in the kitchen
@@ -17,6 +17,11 @@ int gasValue = 0;
 const int FlameanalogInPin = 35;  // A0 attach to pin 35
 const int FlamedigitalInPin = 25; // D0 attach to pin 32
 
+// Define the pin numbers for the push buttons
+const int buttonPinKitchen = 15;
+const int buttonPinBathroom = 14;
+const int buttonPinBedroom = 12;
+const int buttonPinLivingRoom = 18;
 
 // Status flags
 int kitchenHighTemp = 0;
@@ -33,9 +38,12 @@ void setup() {
   dhtKitchen.begin();   // Initialize the DHT11 sensor in the kitchen
   dhtBathroom.begin();  // Initialize the DHT11 sensor in the bathroom
   pinMode(FlamedigitalInPin, INPUT);
-
-    pinMode(reedSwitchPin, INPUT_PULLUP); // Set the reed switch pin as input with internal pull-up resistor
-
+  pinMode(reedSwitchPin, INPUT_PULLUP); // Set the reed switch pin as input with internal pull-up resistor
+  // Initialize the push button pins as inputs
+  pinMode(buttonPinKitchen, INPUT_PULLUP);
+  pinMode(buttonPinBathroom, INPUT_PULLUP);
+  pinMode(buttonPinBedroom, INPUT_PULLUP);
+  pinMode(buttonPinLivingRoom, INPUT_PULLUP);
 
 }
 
@@ -55,6 +63,12 @@ void loop() {
 }
 
 void monitorKitchen() {
+
+    int kitchenButtonState = digitalRead(buttonPinKitchen);
+      // Check if the kitchen button is pressed
+  if (kitchenButtonState == LOW) { // Assuming LOW means the button is pressed
+    Serial.println("Alert: Call for help from the kitchen!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  }
   // Monitor DHT11 sensor
   float humidity = dhtKitchen.readHumidity();
   float temperature = dhtKitchen.readTemperature();
@@ -144,6 +158,13 @@ void monitorKitchen() {
 }
 
 void monitorBathroom() {
+
+    int bathroomButtonState = digitalRead(buttonPinBathroom);
+  // Check if the bathroom button is pressed
+  if (bathroomButtonState == LOW) {
+    Serial.println("Alert: Call for help from the bathroom!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  }
+
   float humidity = dhtBathroom.readHumidity();
   float temperature = dhtBathroom.readTemperature();
 
@@ -178,6 +199,12 @@ void monitorBathroom() {
 }
 
 void monitorLivingRoom() {
+  
+    int livingRoomButtonState = digitalRead(buttonPinLivingRoom);
+
+    if (livingRoomButtonState == LOW) {
+    Serial.println("Alert: Call for help from the living room!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  }
   // Placeholder function
  int reedSwitchState = digitalRead(reedSwitchPin); // Read the state of the reed switch
 
@@ -190,7 +217,11 @@ void monitorLivingRoom() {
 
 void monitorBedroom() {
   // Placeholder function
-  Serial.println("Bedroom monitoring function to be implemented manually.");
+  int bedroomButtonState = digitalRead(buttonPinBedroom);
+    // Check if the bedroom button is pressed
+  if (bedroomButtonState == LOW) {
+    Serial.println("Alert: Call for help from the bedroom!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  }
 }
 
 void updateFlags() {

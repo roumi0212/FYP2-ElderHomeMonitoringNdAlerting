@@ -1,7 +1,7 @@
 #include <DHT.h>
 
 
-const int reedSwitchPin = 33; // GPIO pin connected to the magnetic switch
+const int reedSwitchPin = 27; // GPIO pin connected to the magnetic switch
 
 // DHT11 sensor configuration
 #define DHTPIN_KITCHEN 32  // GPIO pin connected to the DHT11 sensor in the kitchen
