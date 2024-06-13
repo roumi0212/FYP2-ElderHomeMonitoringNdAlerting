@@ -52,16 +52,16 @@ bool alertUserFlag = false;
 bool buttonState = false;   // State of the button
 bool lastButtonState = false; // Previous state of the button
 
-// // Kitchen Limits
+// Kitchen Limits
 const float hightemp_K = 35.0;
 const float HighHum_K = 70.0;
 const float HighGas_K = 1800;
 const float HighFlame_K = 4000;
 
-// // Bathroom Limits
+// Bathroom Limits
 const float hightemp_B = 35.0;
 const float HighHum_B = 70.0;
-const int HighRain_B = 3000;
+const int HighRain_B = 4000;
 
 void setup() {
   Serial.begin(115200); // Start the serial communication at a baud rate of 115200
@@ -82,7 +82,6 @@ void setup() {
   pinMode(alertButtonPin, INPUT_PULLUP); // Set the CallforHelp button pin as input with internal pull-up resistor
 
   // Set initial state of RGB LED pins to HIGH (turn off LED)
-
   digitalWrite(redPin, HIGH);
   digitalWrite(greenPin, HIGH);
   digitalWrite(bluePin, HIGH);
@@ -91,17 +90,12 @@ void setup() {
 }
 
 void loop() {
-
-
   if (Serial.available() > 0) {
-    int command = Serial.parseInt();
-    if (command == 1) {
-      alertUserFlag = true;
-    }
+    String command = Serial.readStringUntil('\n');
+    processReceivedCommand(command);
   }
 
   buttonState = digitalRead(stopButtonPin);
-  // Check if the button has been pressed (transition from HIGH to LOW)
   if (buttonState == LOW && lastButtonState == HIGH) {
     alertUserFlag = false; // Deactivate alert
     delay(50); // Debounce delay
@@ -118,62 +112,52 @@ void loop() {
   }
 
   int callForHelp = digitalRead(alertButtonPin);
-  if (callForHelp == LOW) { // Assuming LOW means the button is pressed
+  if (callForHelp == LOW) {
     Serial.println("!!!!!!!!!!!!!!!!!!!!! General Call For Help from Central Unit !!!!!!!!!!!!!!!!!!!!!");
     callForHelpFlag = true;
   } else {
     callForHelpFlag = false;
   }
 
-
-
   monitorKitchen();
   monitorBathroom();
   monitorLivingRoom();
   monitorBedroom();
+
+  transmitAlerts();
   delay(2000); // Wait for 2 seconds before next reading
 }
 
 void alertUser() {
-  // Read the state of the pushbutton
   buttonState = digitalRead(stopButtonPin);
-
-  // Check if the button has been pressed (transition from HIGH to LOW)
   if (buttonState == LOW && lastButtonState == HIGH) {
     alertUserFlag = false; // Deactivate alert
     delay(50); // Debounce delay
   }
-
   lastButtonState = buttonState; // Update the last button state
 
   if (alertUserFlag) {
     Serial.println("################## Alert: User initiated alert!");
-  // Turn on the buzzer and RGB LED
-  digitalWrite(buzzerPin, HIGH);
-  digitalWrite(redPin, LOW);
-  digitalWrite(greenPin, LOW);
-  digitalWrite(bluePin, LOW);
-  delay(500);
-
-  // Turn off the buzzer and RGB LED
-  digitalWrite(buzzerPin, LOW);
-  digitalWrite(redPin, HIGH);
-  digitalWrite(greenPin, LOW);
-  digitalWrite(bluePin, HIGH);
-  delay(500);
-
-  digitalWrite(buzzerPin, HIGH);
-  digitalWrite(redPin, HIGH);
-  digitalWrite(greenPin, LOW);
-  digitalWrite(bluePin, HIGH);
-  delay(500);
-
-  digitalWrite(buzzerPin, LOW);
-  digitalWrite(redPin, LOW);
-  digitalWrite(greenPin, HIGH);
-  digitalWrite(bluePin, LOW);
+    digitalWrite(buzzerPin, HIGH);
+    digitalWrite(redPin, LOW);
+    digitalWrite(greenPin, LOW);
+    digitalWrite(bluePin, LOW);
+    delay(500);
+    digitalWrite(buzzerPin, LOW);
+    digitalWrite(redPin, HIGH);
+    digitalWrite(greenPin, LOW);
+    digitalWrite(bluePin, HIGH);
+    delay(500);
+    digitalWrite(buzzerPin, HIGH);
+    digitalWrite(redPin, HIGH);
+    digitalWrite(greenPin, LOW);
+    digitalWrite(bluePin, HIGH);
+    delay(500);
+    digitalWrite(buzzerPin, LOW);
+    digitalWrite(redPin, LOW);
+    digitalWrite(greenPin, HIGH);
+    digitalWrite(bluePin, LOW);
   } else {
-    // Turn off the buzzer and RGB LED
     digitalWrite(buzzerPin, HIGH);
     digitalWrite(redPin, HIGH);
     digitalWrite(greenPin, HIGH);
@@ -185,11 +169,10 @@ void alertUser() {
 
 void monitorKitchen() {
   int kitchenButtonState = digitalRead(buttonPinKitchen);
-  // Check if the kitchen button is pressed
-  if (kitchenButtonState == LOW) { // Assuming LOW means the button is pressed
+  if (kitchenButtonState == LOW) {
     Serial.println("Alert: Call for help from the kitchen!");
   }
-  // Monitor DHT11 sensor
+
   float humidity = dhtKitchen.readHumidity();
   float temperature = dhtKitchen.readTemperature();
 
@@ -206,7 +189,6 @@ void monitorKitchen() {
   Serial.print(humidity);
   Serial.println(" %");
 
-  // Check for high temperature in kitchen
   if (temperature > hightemp_K) {
     kitchenHighTemp = true;
     Serial.println("Alert: High temperature detected in the kitchen. Please check the area.");
@@ -214,7 +196,6 @@ void monitorKitchen() {
     kitchenHighTemp = false;
   }
 
-  // Check for high humidity in kitchen
   if (humidity > HighHum_K) {
     kitchenHighHumidity = true;
     Serial.println("Alert: High humidity detected in the kitchen. Please check the area.");
@@ -222,10 +203,9 @@ void monitorKitchen() {
     kitchenHighHumidity = false;
   }
 
-  // Monitor MQ2 sensor
-  gasValue = analogRead(gasSensorPin); // Read analog value from sensor
-  float voltage = gasValue * (3.3 / 4095.0); // Convert analog value to voltage (ESP32 ADC is 12-bit)
-  float gasConcentration = (voltage - 0.1) * 1000; // Convert voltage to ppm
+  gasValue = analogRead(gasSensorPin);
+  float voltage = gasValue * (3.3 / 4095.0);
+  float gasConcentration = (voltage - 0.1) * 1000;
 
   Serial.print("Gas Concentration: ");
   Serial.print(gasConcentration);
@@ -240,15 +220,15 @@ void monitorKitchen() {
     gasAlert = false;
   }
 
-  int FlameanalogVal = analogRead(FlameanalogInPin);  // read the value of analog pin 35
+  int FlameanalogVal = analogRead(FlameanalogInPin);
   Serial.print("Analog Value: ");
-  Serial.println(FlameanalogVal);  // print to serial monitor
+  Serial.println(FlameanalogVal);
 
-  int FlamedigitalVal = digitalRead(FlamedigitalInPin);  // read the value of digital pin 25
+  int FlamedigitalVal = digitalRead(FlamedigitalInPin);
   Serial.print("Digital Value: ");
-  Serial.println(FlamedigitalVal);  // print to serial monitor
+  Serial.println(FlamedigitalVal);
 
-  if (FlamedigitalVal == LOW || FlameanalogVal < HighFlame_K) {  // assuming LOW means flame detected
+  if (FlamedigitalVal == LOW || FlameanalogVal < HighFlame_K) {
     Serial.println("Alert: Flame detected! Please check the area.");
     Serial.print("Analog Flame Sensor Value: ");
     Serial.println(FlameanalogVal);
@@ -261,7 +241,6 @@ void monitorKitchen() {
 
 void monitorBathroom() {
   int bathroomButtonState = digitalRead(buttonPinBathroom);
-  // Check if the bathroom button is pressed
   if (bathroomButtonState == LOW) {
     Serial.println("Alert: Call for help from the bathroom!");
   }
@@ -282,7 +261,6 @@ void monitorBathroom() {
   Serial.print(humidity);
   Serial.println(" %");
 
-  // Check for high temperature in bathroom
   if (temperature > hightemp_B) {
     bathroomHighTemp = true;
     Serial.println("Alert: High temperature detected in the bathroom. Please check the area.");
@@ -290,7 +268,6 @@ void monitorBathroom() {
     bathroomHighTemp = false;
   }
 
-  // Check for high humidity in bathroom
   if (humidity > HighHum_B) {
     bathroomHighHumidity = true;
     Serial.println("Alert: High humidity detected in the bathroom. Please check the area.");
@@ -298,21 +275,19 @@ void monitorBathroom() {
     bathroomHighHumidity = false;
   }
 
-  // Monitor rain sensor
-  int rainValue = analogRead(rainSensorPin); // Read the analog value from the rain sensor
+  int rainValue = analogRead(rainSensorPin);
   Serial.print("Rain Sensor Value: ");
   Serial.println(rainValue);
 
-  if (rainValue < HighRain_B) { // Adjust threshold as needed
+  if (rainValue < HighRain_B) {
     rainAlert = true;
     Serial.println("Alert: Water detected in the bathroom! Please check the area.");
   } else {
     rainAlert = false;
   }
 
-  // Monitor touch sensor for fall detection
-  int touchState = digitalRead(touchPinBathroom); // Read the state of the touch sensor
-  if (touchState == HIGH) { // Assuming HIGH means the touch sensor is triggered
+  int touchState = digitalRead(touchPinBathroom);
+  if (touchState == HIGH) {
     fallAlert = true;
     Serial.println("Alert: Fall detected in the bathroom! Please check the area.");
   } else {
@@ -322,46 +297,69 @@ void monitorBathroom() {
 
 void monitorLivingRoom() {
   int livingRoomButtonState = digitalRead(buttonPinLivingRoom);
-
   if (livingRoomButtonState == LOW) {
     Serial.println("Alert: Call for help from the living room!");
   }
-  // Placeholder function
-  int reedSwitchState = digitalRead(reedSwitchPin); // Read the state of the reed switch
 
-  if (reedSwitchState == LOW) { // Check if the magnetic switch is closed
-    Serial.println("Magnet detected!"); // Magnet is near the switch, circuit is closed
+  int reedSwitchState = digitalRead(reedSwitchPin);
+  if (reedSwitchState == LOW) {
+    Serial.println("Magnet detected!");
   } else {
-    Serial.println("No magnet detected."); // Magnet is away from the switch, circuit is open
+    Serial.println("No magnet detected.");
   }
 }
 
 void monitorBedroom() {
   int bedroomButtonState = digitalRead(buttonPinBedroom);
-  // Check if the bedroom button is pressed
   if (bedroomButtonState == LOW) {
     Serial.println("Alert: Call for help from the bedroom!");
   }
 }
 
-void updateFlags() {
-  Serial.println("********************Updating flags:");
-  Serial.print("Kitchen High Temp: ");
-  Serial.println(kitchenHighTemp);
-  Serial.print("Kitchen High Humidity: ");
-  Serial.println(kitchenHighHumidity);
-  Serial.print("Bathroom High Temp: ");
-  Serial.println(bathroomHighTemp);
-  Serial.print("Bathroom High Humidity: ");
-  Serial.println(bathroomHighHumidity);
-  Serial.print("Gas Alert: ");
-  Serial.println(gasAlert);
-  Serial.print("Flame Alert: ");
-  Serial.println(flameAlert);
-  Serial.print("Rain Alert: ");
-  Serial.println(rainAlert);
-  Serial.print("Fall Alert: ");
-  Serial.println(fallAlert);
+void transmitAlerts() {
+  if (kitchenHighTemp) {
+    Serial.println("1");
+  }
+  if (kitchenHighHumidity) {
+    Serial.println("2");
+  }
+  if (bathroomHighTemp) {
+    Serial.println("3");
+  }
+  if (bathroomHighHumidity) {
+    Serial.println("4");
+  }
+  if (gasAlert) {
+    Serial.println("5");
+  }
+  if (flameAlert) {
+    Serial.println("6");
+  }
+  if (rainAlert) {
+    Serial.println("7");
+  }
+  if (fallAlert) {
+    Serial.println("8");
+  }
+  if (callForHelpFlag) {
+    Serial.println("9");
+  }
+  if (alertUserFlag) {
+    Serial.println("10");
+  }
 }
 
+void processReceivedCommand(String command) {
+  if (command == "ALERT_USER") {
+    alertUserFlag = true;
 
+  }
+    if (alertUserFlag) {
+    alertUser();
+  } else {
+    digitalWrite(buzzerPin, HIGH);
+    digitalWrite(redPin, HIGH);
+    digitalWrite(greenPin, HIGH);
+    digitalWrite(bluePin, HIGH);
+  }
+}
