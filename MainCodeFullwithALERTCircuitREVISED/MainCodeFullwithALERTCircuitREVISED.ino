@@ -95,6 +95,13 @@ void loop() {
     processReceivedCommand(command);
   }
 
+    if (Serial.available() > 0) {
+    int command = Serial.parseInt();
+    if (command == 1) {
+      alertUser();
+    }
+  }
+
   buttonState = digitalRead(stopButtonPin);
   if (buttonState == LOW && lastButtonState == HIGH) {
     alertUserFlag = false; // Deactivate alert

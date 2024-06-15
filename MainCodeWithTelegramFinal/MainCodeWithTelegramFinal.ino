@@ -20,9 +20,9 @@ unsigned long bot_lasttime = 0; // last time messages' scan has been done
 
 enum State {INITIAL, MAIN_MENU};
 
-// Map to store the state of each user
+// // Map to store the state of each user
 std::map<String, State> userStates;
-std::map<String, String> userNames;
+// std::map<String, String> userNames;
 
 // Status flags
 bool kitchenHighTemp = false;
@@ -62,7 +62,7 @@ const int alertButtonPin = 5; // GPIO pin connected to the user alert button
 const int stopButtonPin = 4; // GPIO pin connected to the stop alert button
 
 // Rain sensor pin
-const int rainSensorPin = 26; // Analog pin for rain sensor
+const int rainSensorPin = 36; // Analog pin for rain sensor
 
 // Buzzer and RGB LED pins
 const int buzzerPin = 0;
@@ -75,13 +75,13 @@ const int reedSwitchPin = 27; // GPIO pin connected to the magnetic switch
 
 // Kitchen Limits
 const float hightemp_K = 35.0;
-const float HighHum_K = 70.0;
+const float HighHum_K = 75.0;
 const float HighGas_K = 1800;
 const float HighFlame_K = 3500;
 
 // Bathroom Limits
 const float hightemp_B = 35.0;
-const float HighHum_B = 70.0;
+const float HighHum_B = 75.0;
 const int HighRain_B = 4000;
 
 bool buttonState = false;   // State of the button
@@ -124,6 +124,7 @@ void setup() {
   pinMode(greenPin, OUTPUT);
   pinMode(bluePin, OUTPUT);
   pinMode(alertButtonPin, INPUT_PULLUP); // Set the CallforHelp button pin as input with internal pull-up resistor
+  // pinMode(rainSensorPin, INPUT); // Ensure rain sensor pin is correctly set as input
 
   // Set initial state of RGB LED pins to HIGH (turn off LED)
   digitalWrite(redPin, HIGH);
@@ -134,6 +135,7 @@ void setup() {
 }
 
 void loop() {
+
   buttonState = digitalRead(stopButtonPin);
   if (buttonState == LOW && lastButtonState == HIGH) {
     alertUserFlag = false; // Deactivate alert
@@ -211,7 +213,7 @@ void alertUser() {
     digitalWrite(bluePin, HIGH);
   }
 
-  delay(100); // Short delay to avoid rapid toggling
+  delay(50); // Short delay to avoid rapid toggling
 }
 
 void monitorKitchen() {
@@ -286,65 +288,6 @@ void monitorKitchen() {
   }
 }
 
-// void monitorBathroom() {
-//   bathroomButtonState = digitalRead(buttonPinBathroom);
-//   if (bathroomButtonState == LOW) {
-//     Serial.println("Alert: Call for help from the bathroom!");
-//   }
-
-//   float humidity = dhtBathroom.readHumidity();
-//   float temperature = dhtBathroom.readTemperature();
-
-//   if (isnan(humidity) || isnan(temperature)) {
-//     Serial.println("Failed to read from bathroom DHT sensor!");
-//     return;
-//   }
-
-//   Serial.print("Bathroom Temperature: ");
-//   Serial.print(temperature);
-//   Serial.println(" °C");
-
-//   Serial.print("Bathroom Humidity: ");
-//   Serial.print(humidity);
-//   Serial.println(" %");
-
-//   if (temperature > hightemp_B) {
-//     bathroomHighTemp = true;
-//     Serial.println("Alert: High temperature detected in the bathroom. Please check the area.");
-//   } else {
-//     bathroomHighTemp = false;
-//   }
-
-//   if (humidity > HighHum_B) {
-//     bathroomHighHumidity = true;
-//     Serial.println("Alert: High humidity detected in the bathroom. Please check the area.");
-//   } else {
-//     bathroomHighHumidity = false;
-//   }
-
-//   int rainValue = analogRead(rainSensorPin);
-//   Serial.print("Rain Sensor Value: ");
-//   Serial.println(rainValue);
-
-//   if (rainValue < HighRain_B) {
-//     rainAlert = true;
-//     Serial.println("Alert: Water detected in the bathroom! Please check the area.");
-//       Serial.print("Rain Sensor Value: ");
-//       Serial.println(rainValue);
-//   } else {
-//     rainAlert = false;
-//       Serial.print("Rain Sensor Value: ");
-//   Serial.println(rainValue);
-//   }
-
-//   int touchState = digitalRead(touchPinBathroom);
-//   if (touchState == HIGH) {
-//     fallAlert = true;
-//     Serial.println("Alert: Fall detected in the bathroom! Please check the area.");
-//   } else {
-//     fallAlert = false;
-//   }
-// }
 void monitorBathroom() {
   bathroomButtonState = digitalRead(buttonPinBathroom);
   if (bathroomButtonState == LOW) {
@@ -381,8 +324,9 @@ void monitorBathroom() {
     bathroomHighHumidity = false;
   }
 
+  delay(100); // Allow sensor to stabilize
   int rainValue = analogRead(rainSensorPin);
-  Serial.print("Rain Sensor Value: ");
+  Serial.print("Rain Sensor Raw Value: ");
   Serial.println(rainValue);
 
   // Ensure the threshold value is appropriate for your sensor
@@ -479,17 +423,15 @@ void sendAlertMessages() {
   if (alertMessage != "") {
     for (const auto& user : userStates) {
       bot.sendMessage(user.first, alertMessage, "");
+      displayMainMenu(user.first);
     }
-  }
-
-  for (const auto& user : userStates) {
-    displayMainMenu(user.first);
   }
 }
 
+
 void handleNewMessages(int numNewMessages) {
   for (int i = 0; i < numNewMessages; i++) {
-    String chat_id = String(bot.messages[i].chat_id);
+    String chat_id = String(bot.messages[i].chat_id); // Declare chat_id here
     String text = bot.messages[i].text;
 
     if (userStates.find(chat_id) == userStates.end()) {
@@ -499,20 +441,25 @@ void handleNewMessages(int numNewMessages) {
     State& state = userStates[chat_id];
 
     if (state == INITIAL) {
-      bot.sendMessage(chat_id, "Please choose an action:", "");
+      bot.sendMessage(chat_id, "Welcome to SeniorGuardianBot", "");
       state = MAIN_MENU;
       displayMainMenu(chat_id);
+            bot.sendMessage(chat_id, "if you need anything else later, type /start to display the menu", "");
+
     } else if (state == MAIN_MENU) {
       if (bot.messages[i].type == "callback_query") {
         String callbackData = bot.messages[i].text;
         handleCallbackQuery(callbackData, chat_id);
         bot.answerCallbackQuery(bot.messages[i].query_id);
+      } else if (text == "/start") {
+        displayMainMenu(chat_id); // Redisplay the menu only if the user explicitly sends "/start"
       } else {
         // Optionally handle other text messages in MAIN_MENU state
       }
     }
   }
 }
+
 
 void displayMainMenu(const String &chat_id) {
   String menu = "Please choose an action:";
