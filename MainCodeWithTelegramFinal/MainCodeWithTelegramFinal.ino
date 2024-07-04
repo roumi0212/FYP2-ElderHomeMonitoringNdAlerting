@@ -76,8 +76,8 @@ const int reedSwitchPin = 27; // GPIO pin connected to the magnetic switch
 // Kitchen Limits
 const float hightemp_K = 35.0;
 const float HighHum_K = 75.0;
-const float HighGas_K = 1800;
-const float HighFlame_K = 3500;
+const float HighGas_K = 900;
+const float HighFlame_K = 4000;
 
 // Bathroom Limits
 const float hightemp_B = 35.0;
@@ -202,7 +202,7 @@ void alertUser() {
     digitalWrite(greenPin, LOW);
     digitalWrite(bluePin, HIGH);
     delay(500);
-    digitalWrite(buzzerPin, HIGH);
+    digitalWrite(buzzerPin, LOW);
     digitalWrite(redPin, LOW);
     digitalWrite(greenPin, HIGH);
     digitalWrite(bluePin, LOW);
@@ -270,14 +270,14 @@ void monitorKitchen() {
   }
 
   int FlameanalogVal = analogRead(FlameanalogInPin);
-  Serial.print("Analog Value: ");
+  Serial.print("FlameAnalog Value: ");
   Serial.println(FlameanalogVal);
 
   int FlamedigitalVal = digitalRead(FlamedigitalInPin);
-  Serial.print("Digital Value: ");
+  Serial.print(" Flame Digital Value: ");
   Serial.println(FlamedigitalVal);
 
-  if (FlamedigitalVal == LOW || FlameanalogVal < HighFlame_K) {
+  if (FlameanalogVal < HighFlame_K) {
     Serial.println("Alert: Flame detected! Please check the area.");
     Serial.print("Analog Flame Sensor Value: ");
     Serial.println(FlameanalogVal);
